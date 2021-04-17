@@ -21,16 +21,6 @@ def likelihood_grad(img, mode, nsampl, vae_model, boot_samples, patch_sz, device
         grd0m = torch.mean(grd0eval, dim=0)#[0]
         #print(grd0m)
         grd0std = torch.std(inv_preceval, dim=0) 
-    elif mode == 'GUDDP':
-        # Use Bootstrap sampling for stat. computation of gradients 
-        samples, inv_prec_samples = vae_model.grad(img_re, nsampl)  
-        grd0eval = torch.zeros((boot_samples, samples.shape[1], samples.shape[2]), device=device)
-
-        for idx in range(boot_samples):
-            grd0eval[idx] = torch.mean(samples[torch.random.randint(nsampl, size=int(nsampl*0.40)),:,:], dim=0)
-
-        grd0m = torch.mean(samples, dim=0)#[0]  # [parfact,784]
-        grd0std = torch.std(grd0eval, dim=0)  # [parfact,784]
     else:
         print('EXIT: No VAETV mode type: ', mode)
         exit()
@@ -40,7 +30,7 @@ def likelihood_grad(img, mode, nsampl, vae_model, boot_samples, patch_sz, device
     
     return grd0m, grd0std
 
-def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model, boot_samples, mode, mean, std):
+def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model, boot_samples, mode):
     # inp: [nx*nx, 1]
     # out: [nx*nx, 1]
     device = img.device
@@ -49,10 +39,9 @@ def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_mo
     ret_tensor = torch.zeros_like(img, device=device)
 
     # Normalize for VAE
-    norm_img = (torch.abs(img)-mean)/std
-    #norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
-    #norm_img = norm_fac * torch.abs(img) 
-    #print(norm_img)
+    norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
+    norm_img = norm_fac * torch.abs(img) 
+
     cimg, w_from, w_to, h_from, h_to = norm_img, 0, ret_tensor.shape[0], 0, ret_tensor.shape[1] #
     H,W = cimg.shape
 
@@ -73,7 +62,6 @@ def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_mo
     grds_std = stitch_patches(grds_std, patch_sz, H, W)
 
     ret_tensor[w_from:w_to, h_from:h_to] = img_grds
-    #print(ret_tensor)
     # Return and unormalise
     return -1 * ret_tensor*std+mean, grds_std, grd_dc
 
@@ -85,7 +73,7 @@ def likelihood(img, nsampl, vae_model, patch_sz):
 
     return torch.sum(ELBO, dim=0) #ELBO #[parfact]
 
-def prior_value(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model, mean, std):
+def prior_value(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model):
     # inp: [nx*nx, 1]
     # out: [nx*nx, 1]
     device = img.device
@@ -94,9 +82,9 @@ def prior_value(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model
     diff = (UFT_pytorch(img, uspat, coilmaps) - data).flatten()
     dc_err = torch.sqrt(torch.sum(diff.real**2 + diff.imag**2)) 
     
-    norm_img = (torch.abs(img)-mean)/std
-    #norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
-    #norm_img = norm_fac * torch.abs(img) 
+    #norm_img = (torch.abs(img)-mean)/std
+    norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
+    norm_img = norm_fac * torch.abs(img) 
     
     cimg, w_from, w_to, h_from, h_to = center_crop_pytorch(norm_img)
     # Create overlapping patches with batchsize parfact

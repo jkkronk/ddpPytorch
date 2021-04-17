@@ -1,13 +1,13 @@
 import h5py
 import os
-from US_pattern import US_pattern
 import sigpy.mri as mr
 import cupy
 import torch
-from utils import min_max_aclines, mean_std_aclines, center_crop
 from torch.utils.data import Dataset
 import numpy as np
 from random import shuffle
+from utils import center_crop
+from US_pattern import US_pattern
 
 class patch_data(Dataset):
     def __init__(self, dirname, coil_path, noiseinvstd=0, patchsize=28, modality='T2', valid=0, crop=True, num_subj=0, rss=False):
@@ -72,11 +72,6 @@ class patch_data(Dataset):
 
             # Normalise 
             img_sli_singlec = np.sum(np.conjugate(est_coilmap) * img_sli, axis=0)/(np.sum(np.conjugate(est_coilmap) * est_coilmap, axis=0)+1e-6)
-            #i_min, i_max = min_max_aclines(ksp_sli, 10)
-            #norm_img_sli_singlec = (img_sli_singlec-i_min)/(i_max-i_min)
-            #mean, std = mean_std_aclines(ksp_sli, 10)
-            #norm_fac = 1
-            #norm_img_sli_singlec = ((np.abs(img_sli_singlec)-mean)/std) * np.exp(1j * np.angle(img_sli_singlec)) # 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 95))
             norm_fac = 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 95))
             norm_img_sli_singlec = norm_fac * np.abs(img_sli_singlec) * np.exp(1j * np.angle(img_sli_singlec)) #
         else:

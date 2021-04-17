@@ -4,57 +4,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
 from typing import List, Optional
-import torch.fft
 from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 from typing import Union
-
-class rmsprop():
-    def __init__(self, eta=1e-4, gamma=0.9, epsilon=1e-8):
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.eta = eta
-        self.moment = 0
-
-    def update(self, t, w, w_grad):
-        self.moment = self.gamma*self.moment + (1-self.gamma)*(w_grad)**2
-        lr_a = self.eta/torch.sqrt(self.moment + self.epsilon)
-
-        w = w - w_grad*lr_a
-        return w
-
-class adamOptim():
-    def __init__(self, eta=0.01, beta1=0.9, beta2=0.999, epsilon=1e-8):
-        self.m_dw, self.v_dw = 0, 0
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
-        self.eta = eta
-
-    def update(self, t, w, w_grad):
-        self.m_dw = self.beta1*self.m_dw + (1-self.beta1)*w_grad
-        self.v_dw = self.beta2*self.v_dw + (1-self.beta2)*(w_grad**2)
-
-        m_cap = self.m_dw/(1-self.beta1**t)
-        v_cap = self.v_dw/(1-self.beta2**t)
-
-        w = w - self.eta*m_cap/(torch.sqrt(v_cap)+self.epsilon)
-        return w
-
-class momentumGrad():
-    def __init__(self, eta=1e-4, beta=0.5):
-        self.moment = 0
-        self.beta = beta
-        self.eta = eta
-
-    def update(self, t, w, w_grad):
-        if t > 1:
-            self.moment = self.beta * self.moment + (1-self.beta) * w_grad
-        else:
-            self.moment = w_grad
-
-        ## update weights and biases
-        w = w - self.eta * self.moment
-        return w
 
 ### Complex functions
 def center_crop_pytorch(data):

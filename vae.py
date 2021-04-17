@@ -1,11 +1,8 @@
-import os
 import torch
-import torch.utils.data
-from torch import nn, optim
-import torch.nn.init as init
+from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
-from torchvision import datasets, transforms
+from torchvision import transforms
 from torchvision.utils import make_grid
 import numpy as np
 from utils import normalize_tensor
@@ -20,6 +17,7 @@ class VAE(nn.Module):
         self.nsamples = 50
         self.tanh = nn.Tanh()
 
+        # Encoder blocks
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1,
                       stride=1),
@@ -38,11 +36,11 @@ class VAE(nn.Module):
             nn.ReLU()
         )
 
+        # Fully connected to Latent variables
         self.fc11 = nn.Linear(in_features=64 * 28 * 28, out_features=ZDIMS)
-
         self.fc12 = nn.Linear(in_features=64 * 28 * 28, out_features=ZDIMS)
 
-        # For decoder
+        # Decoder blocks
         self.fc1_t = nn.Sequential(
             nn.Linear(in_features=ZDIMS, out_features=48 * 28 * 28),
             nn.ReLU()
@@ -74,13 +72,12 @@ class VAE(nn.Module):
         x = self.conv2(x)
         x = self.conv3(x)
         x = x.view(-1, 64 * 28 * 28)
-
         mu_z = self.fc11(x)
         logvar_z = self.fc12(x)        
         return mu_z, logvar_z
 
     def reparameterize(self, mu: Variable, logvar: Variable) -> list:
-        if self.mc_samp: #or self.training:
+        if self.mc_samp:
             sample_z = []
             for _ in range(self.nsamples):
                 std = torch.mul(0.5, logvar).exp()
@@ -95,13 +92,11 @@ class VAE(nn.Module):
     def decode(self, z: Variable) -> (Variable, Variable):
         x = self.fc1_t(z)
         x = x.view(-1, 48, 28, 28)
-
         deconv1 = self.conv_t1(x)
         deconv2 = self.conv_t2(deconv1)
         deconv3 = self.conv_t3(deconv2)
         mu_x = self.conv_t41(deconv3)
         inv_prec = self.conv_t42(deconv3) 
-
         return mu_x.reshape(mu_x.shape[0], 784), inv_prec.reshape(inv_prec.shape[0], 784)
 
     def forward(self, x: Variable) -> (Variable, Variable, Variable):
@@ -121,37 +116,13 @@ class VAE(nn.Module):
         x = x.reshape(x.shape[0], 784)
         mu_x, log_sigma = recon_x_batch
         
-        GLL = 0.5 * torch.sum(torch.pow((x - mu_x),2) / (log_sigma.exp()) + log_sigma, 1)
-        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), 1)
+        GLL = 0.5 * torch.sum(torch.pow((x - mu_x),2) / (log_sigma.exp()) + log_sigma, 1) # Gaussian Loss
+        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), 1) # Kl divergence loss
 
         return GLL, KLD
-        
-    def grad_direct(self, x_in, nsamples):
-        self.mc_samp = True
-        self.nsamples = nsamples
-        self.eval()
-
-        parfact, sz = x_in.shape
-        x = x_in.unsqueeze(1)
-        img_ano = nn.Parameter(x.clone(), requires_grad=True)
-
-        recon_batch, mu, logvar, z = self.forward(img_ano)
-
-        grad_l = torch.zeros((nsamples, parfact, sz)).to(self.device).float()
-        inv_prec_all = torch.zeros((nsamples,parfact, sz)).to(self.device).float()
-
-        for ix, recon_x in enumerate(recon_batch):
-            mu_x, inv_prec = recon_x
-            inv_prec_all[ix] = mu_x.detach()
-
-            grad_l[ix] = - 1 * (torch.mul(img_ano[:,0,:] - mu_x, torch.reciprocal(inv_prec.exp()))).detach()
-            del mu_x
-            del inv_prec
-
-        self.mc_samp = False
-        return grad_l, inv_prec_all
 
     def grad(self, x_in, nsamples):
+        # Returns gradient of ELBO(x)
         self.mc_samp = True
         self.nsamples = nsamples
         self.eval()
@@ -182,6 +153,7 @@ class VAE(nn.Module):
         return grad_l, inv_prec_all
 
     def ELBO(self, x_in, nsamples):
+        # returns ELBO(X)
         self.mc_samp = True
         self.nsamples = nsamples
         self.eval()

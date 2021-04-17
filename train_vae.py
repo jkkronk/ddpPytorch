@@ -1,21 +1,16 @@
 import os
 os.environ['WANDB_DIR'] = '/cluster/scratch/jonatank/wandb'
-
 import torch
 import torch.utils.data as data
 import torch.optim as optim
 from torchvision.utils import make_grid
 from torchvision import transforms
-from tensorboardX import SummaryWriter
 import argparse
-import yaml
 from datetime import datetime
 import numpy as np
-from torch.autograd import Variable
-from dataloader import patch_data
 from vae import VAE, test, train
 from utils import normalize_tensor
-import glob
+from dataloader import patch_data
 
 if __name__ == "__main__":
     # Params init
@@ -25,7 +20,6 @@ if __name__ == "__main__":
     parser.add_argument('--lr_rate', type=float, default=1e-4)
     parser.add_argument('--zdims', type=int, default=60)
     parser.add_argument('--beta', type=float, default=1)
-    parser.add_argument('--use_KLannealing', type=int, default=0)
     parser.add_argument('--train_data', type=str, default='/cluster/work/cvl/jonatank/fastMRI_T2/train/')
     parser.add_argument('--train_coildata', type=str, default='/cluster/work/cvl/jonatank/est_coilmaps_train/')
     parser.add_argument('--val_data', type=str, default='/cluster/work/cvl/jonatank/fastMRI_T2/validation/')
@@ -40,23 +34,19 @@ if __name__ == "__main__":
     lr_rate = args.lr_rate
     zdims = args.zdims
     beta = args.beta
-    use_KLannealing = bool(args.use_KLannealing)
-    rss = 'True' # True #True
-
-    print('Modality: ', modality)
-
-    datapath_train = args.train_data # 
-    datapath_val =  args.val_data #
-    coil_path_train = args.train_coildata #
-    coil_path_val = args.val_coildata # 
-
+    rss = 'True' 
+    datapath_train = args.train_data 
+    datapath_val =  args.val_data 
+    coil_path_train = args.train_coildata 
+    coil_path_val = args.val_coildata 
     epochs = args.epochs
     img_size = args.img_size
-    log_freq = 100
     name = str(modality + '-' + datetime.now().strftime("%Y%m%d-%H%M%S"))
     log_dir =  args.log_dir + name
     os.mkdir(log_dir)
-    print(log_dir)
+    log_freq = 100
+    print('Logging to Directory: 'log_dir)
+
     # Cuda
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('Using device: ' + str(device))
@@ -85,32 +75,25 @@ if __name__ == "__main__":
     })
     wandb.watch(vae_model)
 
+    #wandb = None
+
     print("epochs ", epochs,
         " batch_size ", batch_size,
         " lr_rate ", lr_rate,
         " zdims ", zdims,
         " beta ", beta,
-        "KLanneal", use_KLannealing
-    )
-
-    print('Rss: ', rss)
-    #wandb = None
+        "KLanneal", use_KLannealing,
+        'Rss: ', rss
+        )
 
     # Init Optimizer Adam
     optimizer = optim.Adam(vae_model.parameters(), lr=lr_rate)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=15, eta_min=1e-5)
 
     # Start training
     print('Start training:')
     for epoch in range(1, epochs + 1): 
         print(epoch)
         # Use Kl annealing 
-        if use_KLannealing:
-            if (epoch - 1) % 100 == 0:
-                beta = 0.5
-            
-            beta = min(5, beta)
-            beta = beta + 1. / 10
 
         train(epoch, vae_model, data_loader, img_size, batch_size, optimizer, wandb, beta, device)
 
@@ -127,7 +110,5 @@ if __name__ == "__main__":
         if epoch % 50 == 0:
             path = log_dir + '/' + str(epoch) + '.pth'
             torch.save(vae_model, path)
-
-        scheduler.step()
 
 

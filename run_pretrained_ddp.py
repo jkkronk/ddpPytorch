@@ -5,24 +5,23 @@ import torch
 import time
 import argparse
 import numpy as np
-from reconstruction import vaerecon
 import torch.utils.data as data
 import wandb 
 from datetime import datetime
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 from utils import center_crop, nmse, ssim, psnr
 from dataloader import Subject
+from reconstruction import vaerecon
 
 def run_inference(subj, R, mode, k, num_sampels, num_bootsamles, batch_size, num_iter, step_size, phase_step, complex_rec, use_momentum, log, device):
-    # Load pretrained VAE
-    
-    vae_model_name = 'T2-20210415-111101/450.pth' #'T2-20210413-135556/400.pth' #'T2-20210406-111637/600.pth' #'T2-20210405-143836/400.pth' #'T2-20210406-194637/100.pth'#'T2-20210406-111637/150.pth' #'T2-20210405-143836/200.pth' #'T2-20210325-123355/500.pth' #'T2-20210325-125621/500.pth'#'T220210322-092044600.pth' #'T220210317-145444400.pth' #'AXFLAIR_abs_KL_20210226-1108436000.pth'
+    # Some inits of paths... Edit these
+    vae_model_name = 'T2-20210415-111101/450.pth' 
     vae_path = '/cluster/scratch/jonatank/logs/ddp/vae/'
-    data_path = '/cluster/work/cvl/jonatank/fastMRI_T2/validation/' #'/cluster/work/cvl/jonatank/fastMRI/multicoil_val/chunk1/'
+    data_path = '/cluster/work/cvl/jonatank/fastMRI_T2/validation/' 
     log_path = '/cluster/scratch/jonatank/logs/ddp/restore/pytorch/'
     rss = True
 
+    # Load pretrained VAE
     path = vae_path + vae_model_name
     vae = torch.load(path, map_location=torch.device(device))
     vae.eval()
@@ -31,7 +30,7 @@ def run_inference(subj, R, mode, k, num_sampels, num_bootsamles, batch_size, num
     subj_dataset = Subject(subj, data_path, R, rss=rss)
     subj_loader  = data.DataLoader(subj_dataset, batch_size=1, shuffle=False, num_workers=0)
 
-    # Run model 
+    # Time model and init resulting matrices
     start_time = time.perf_counter()
     rec_subj = np.zeros((len(subj_loader), 320, 320))
     gt_subj = np.zeros((len(subj_loader), 320, 320))
@@ -99,7 +98,7 @@ def run_inference(subj, R, mode, k, num_sampels, num_bootsamles, batch_size, num
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='PROG')
-    parser.add_argument('--subj', type=str, default='file_brain_AXT2_200_2000019.h5') #ab1 file_brain_AXFLAIR_201_6002975.h5') #much ab file_brain_AXFLAIR_201_6002899.h5') #') # file_brain_AXFLAIR_200_6002462.h5 file_brain_AXFLAIR_200_6002447.h5
+    parser.add_argument('--subj', type=str, default='file_brain_AXT2_200_2000019.h5') 
     parser.add_argument('--usfact', type=int, default=4)
     parser.add_argument('--mode', type=str, default='JDDP') #DDP/JDDP/GUDDP/MUDDP
     parser.add_argument('--k', type=float, default=1)
