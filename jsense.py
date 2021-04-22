@@ -3,6 +3,7 @@ import torch
 import torch.fft
 from utils import fftshift
 
+
 def normalize_basis(basis_funct):
     """
     We return a list of orthonormal bases using Gram Schmidt algorithm

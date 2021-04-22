@@ -72,11 +72,11 @@ class patch_data(Dataset):
 
             # Normalise 
             img_sli_singlec = np.sum(np.conjugate(est_coilmap) * img_sli, axis=0)/(np.sum(np.conjugate(est_coilmap) * est_coilmap, axis=0)+1e-6)
-            norm_fac = 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 95))
+            norm_fac = 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 80))
             norm_img_sli_singlec = norm_fac * np.abs(img_sli_singlec) * np.exp(1j * np.angle(img_sli_singlec)) #
         else:
             img_sli_singlec = np.sqrt(np.sum(np.square(np.abs(img_sli)), axis=0))
-            norm_fac = 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 95))
+            norm_fac = 1 / (np.percentile(np.abs(img_sli_singlec).flatten(), 80))
             norm_img_sli_singlec = norm_fac * np.abs(img_sli_singlec)  
 
         if self.crop:
@@ -131,12 +131,12 @@ class Subject(Dataset):
         if not self.use_rss:
             temp = np.fft.ifft2(np.fft.ifftshift(us_ksp, axes=(1, 2)), axes=(1, 2))
             temp_scoil = np.abs(np.sum(temp * np.conjugate(est_coilmap), axis=0) / (np.sum(est_coilmap * np.conjugate(est_coilmap), axis=0)))
-            norm_fac = 1 #/ np.percentile(np.abs(temp_scoil).flatten(), 95)
+            norm_fac = 1 / np.percentile(np.abs(temp_scoil).flatten(), 80)
             norm_us_ksp = us_ksp * norm_fac
         else:
             temp = np.fft.ifft2(np.fft.ifftshift(us_ksp, axes=(1, 2)), axes=(1, 2))
             temp_scoil = np.sqrt(np.sum(np.square(np.abs(temp)), axis=0))
-            norm_fac = 1 #/ (np.percentile(np.abs(temp_scoil).flatten(), 95)) 
+            norm_fac = 1 / (np.percentile(np.abs(temp_scoil).flatten(), 80)) 
             norm_us_ksp = us_ksp * norm_fac #+ np.random.normal(loc=0, scale=1/100, size=norm_img_sli_singlec.shape)
 
         return torch.from_numpy(norm_us_ksp), torch.from_numpy(est_coilmap), torch.from_numpy(rss).float(), norm_fac, index

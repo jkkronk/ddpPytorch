@@ -39,7 +39,7 @@ def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_mo
     ret_tensor = torch.zeros_like(img, device=device)
 
     # Normalize for VAE
-    norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
+    norm_fac = 1 #/ (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
     norm_img = norm_fac * torch.abs(img) 
 
     cimg, w_from, w_to, h_from, h_to = norm_img, 0, ret_tensor.shape[0], 0, ret_tensor.shape[1] #
@@ -63,7 +63,7 @@ def prior_gradient(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_mo
 
     ret_tensor[w_from:w_to, h_from:h_to] = img_grds
     # Return and unormalise
-    return -1 * ret_tensor*std+mean, grds_std, grd_dc
+    return -1 * ret_tensor/norm_fac, grds_std, grd_dc
 
 def likelihood(img, nsampl, vae_model, patch_sz):
     # inp: [parfact, ps*ps]
@@ -83,7 +83,7 @@ def prior_value(img, data, uspat, coilmaps, patch_sz, parfact, nsampl, vae_model
     dc_err = torch.sqrt(torch.sum(diff.real**2 + diff.imag**2)) 
     
     #norm_img = (torch.abs(img)-mean)/std
-    norm_fac = 1 / (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
+    norm_fac = 1 #/ (np.percentile(np.abs(img.detach().cpu().numpy()).flatten(), 95))
     norm_img = norm_fac * torch.abs(img) 
     
     cimg, w_from, w_to, h_from, h_to = center_crop_pytorch(norm_img)
